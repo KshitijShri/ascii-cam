@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -30,7 +30,7 @@ input[type=file]{display:none}
 <header>ASCII <span>cam</span></header>
 <main>
   <canvas id="out" width="960" height="540"></canvas>
-  <div id="hint">Camera ya Upload dabao</div>
+  <div id="hint">Tap Camera or Upload to start</div>
 </main>
 <nav>
   <button id="cam">Camera</button>
@@ -60,7 +60,7 @@ async function startCam(){
     stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:facing}, audio:false});
     v.srcObject = stream; await v.play();
     el = v; mirror = facing === 'user'; hint('');
-  }catch(e){ hint('Camera allow karo (HTTPS zaroori hai)'); }
+  }catch(e){ hint('Allow camera access (HTTPS required)'); }
 }
 
 function loadFile(f){
@@ -123,7 +123,7 @@ $('cols').oninput = e => { cols = +e.target.value; $('cv').textContent = cols; }
 $('rec').onclick = () => {
   const btn = $('rec');
   if(rec){ rec.stop(); return; }
-  if(!el || !window.MediaRecorder){ hint('Pehle camera ya video chalao'); return; }
+  if(!el || !window.MediaRecorder){ hint('Start the camera or a video first'); return; }
   chunks = [];
   rec = new MediaRecorder(out.captureStream(24));
   rec.ondataavailable = e => chunks.push(e.data);
