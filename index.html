@@ -250,4 +250,224 @@ if(G){
     X.strokeStyle = lg(f.x, GY, f.x, f.y, '#1c6b34', '#4cc26a'); X.lineWidth = 5; X.beginPath(); X.moveTo(f.x, GY); X.quadraticCurveTo(f.x + 9, (GY + f.y) / 2, f.x, f.y); X.stroke();
     [[.35, 1], [.6, -1]].forEach(([q, d]) => { X.save(); X.translate(f.x + 4 * d, GY - (GY - f.y) * q); X.rotate(d > 0 ? -.5 : Math.PI + .5); leaf(32); X.restore(); });
     X.translate(f.x, f.y); HEAD[i](f.s); X.restore();
-    return {x:f.x - (f.y - GY) * Math.sin(a), y:GY + (f.y - GY) * Math.cos(a
+    return {x:f.x - (f.y - GY) * Math.sin(a), y:GY + (f.y - GY) * Math.cos(a), tp:f.tp};
+  }
+  function grass(t){
+    for(let k = 0; k < 40; k++){
+      const bx = k * 9.8 + 2, h = 16 + (k * 37 % 24), w = Math.sin(t * 1.5 + k) * 3;
+      X.fillStyle = lg(bx, GY + 14, bx, GY + 14 - h, '#0f4a22', '#47b869'); X.beginPath(); X.moveTo(bx - 3, GY + 14); X.quadraticCurveTo(bx, GY + 14 - h * .6, bx + w, GY + 14 - h); X.quadraticCurveTo(bx + 1, GY + 14 - h * .5, bx + 3, GY + 14); X.fill();
+    }
+  }
+  function wing(){
+    X.fillStyle = lg(0, 0, 80, -20, '#ffd45c', '#e8590c'); X.strokeStyle = '#161616'; X.lineWidth = 3.2;
+    X.beginPath(); X.moveTo(0, -8); X.bezierCurveTo(14, -58, 72, -70, 82, -30); X.bezierCurveTo(86, -6, 40, 6, 0, 2); X.closePath(); X.fill(); X.stroke();
+    X.fillStyle = lg(0, 0, 60, 40, '#ffc83d', '#d94a0a');
+    X.beginPath(); X.moveTo(0, 4); X.bezierCurveTo(34, 4, 66, 18, 54, 48); X.bezierCurveTo(44, 66, 8, 46, 0, 12); X.closePath(); X.fill(); X.stroke();
+    X.strokeStyle = 'rgba(40,20,0,.55)'; X.lineWidth = 1;
+    [[70,-52],[78,-34],[66,-12],[50,26],[44,46]].forEach(([a, b]) => { X.beginPath(); X.moveTo(2, -2); X.quadraticCurveTo(a * .5, b * .4, a, b); X.stroke(); });
+    [[66,-44],[76,-28],[72,-12],[54,30],[44,46],[30,50]].forEach(([a, b]) => dot(a, b, 2.6, '#fff6d6'));
+  }
+  function butterfly(cx, cy, k, s, rot){
+    X.save(); X.translate(cx, cy); X.rotate(rot); X.scale(k, k);
+    [-1, 1].forEach(d => { X.save(); X.scale(d * s, 1); wing(); X.restore(); });
+    X.fillStyle = '#161616'; X.beginPath(); X.ellipse(0, 6, 4, 26, 0, 0, 7); X.fill();
+    X.fillStyle = '#2a2a2a'; X.beginPath(); X.ellipse(0, -14, 5.5, 10, 0, 0, 7); X.fill(); dot(0, -28, 5, '#161616');
+    X.strokeStyle = '#666'; X.lineWidth = 1; for(let y = -2; y < 30; y += 5){ X.beginPath(); X.moveTo(-3.5, y); X.lineTo(3.5, y); X.stroke(); }
+    X.strokeStyle = '#161616'; X.lineWidth = 1.6;
+    [-1, 1].forEach(d => { X.beginPath(); X.moveTo(d * 2, -32); X.quadraticCurveTo(d * 14, -52, d * 26, -56); X.stroke(); dot(d * 26, -56, 2.4, '#161616'); });
+    X.restore();
+  }
+
+  /* flight + colour logic */
+  let m = 0, tgt = 0, idx = 0, state = 'fly', st = performance.now(), P0 = {x:-100, y:90}, land = 0, dur = 3000, last = 0;
+  const ease = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+  function loop(now){
+    requestAnimationFrame(loop);
+    if(!$('intro').classList.contains('on') || now - last < 30) return;
+    last = now; const t = now / 1000; m += (tgt - m) * .06;
+
+    X.fillStyle = '#000'; X.fillRect(0, 0, SW, SH);
+    const H = F.map((f, i) => flower(i, t)); grass(t);
+    const h = H[idx], T = {x:h.x, y:h.y - h.tp * .6};
+    let bx, by, k, s, rot = .12 * Math.sin(now / 350);
+    if(state === 'fly'){
+      const p = Math.min(1, (now - st) / dur), e = ease(p), C = {x:(P0.x + T.x) / 2, y:Math.min(P0.y, T.y) - 70};
+      bx = (1 - e) * (1 - e) * P0.x + 2 * (1 - e) * e * C.x + e * e * T.x;
+      by = (1 - e) * (1 - e) * P0.y + 2 * (1 - e) * e * C.y + e * e * T.y + Math.sin(now / 120) * 5 * (1 - e);
+      s = .3 + .7 * Math.abs(Math.sin(now / 75)); k = .82 - .2 * e;
+      if(p >= 1){ state = 'sit'; st = now; land++; tgt = land % 2; }
+    }else{
+      bx = T.x; by = T.y; k = .62; s = .45 + .55 * Math.abs(Math.sin(now / 700)); rot = 0;
+      if(now - st > 3000){ P0 = {x:bx, y:by}; idx = (idx + 1) % F.length; state = 'fly'; st = now; dur = 2600; }
+    }
+    butterfly(bx, by, k, s, rot);
+
+    /* convert the painted scene to coloured ASCII */
+    xs.drawImage(sc, 0, 0, COLS, ROWS);
+    const d = xs.getImageData(0, 0, COLS, ROWS).data;
+    c2.clearRect(0, 0, cv.width, cv.height);
+    for(let j = 0, i = 0; j < ROWS; j++) for(let c = 0; c < COLS; c++, i += 4){
+      const r = d[i], g = d[i + 1], b = d[i + 2], l = (.299 * r + .587 * g + .114 * b) / 255, id = Math.floor(Math.pow(l, .75) * N);
+      if(!id) continue;
+      const gy = 60 + 195 * Math.pow(l, .8), f = 255 / Math.max(r, g, b, 1) * (.55 + .45 * l);
+      c2.fillStyle = `rgb(${gy + (Math.min(255, r * f) - gy) * m | 0},${gy + (Math.min(255, g * f) - gy) * m | 0},${gy + (Math.min(255, b * f) - gy) * m | 0})`;
+      c2.fillText(DR[id], c * CW, j * CHH);
+    }
+  }
+  requestAnimationFrame(loop);
+})();
+
+/* pro panel */
+const B = {};
+[['fs','Detail (font size)',7,20,1],['br','Exposure',-60,60,1],['ct','Contrast',.5,2,.05],['sat','Saturation',0,2,.05],['wm','Warmth',-40,40,1]]
+.forEach(([k, name, min, max, step]) => {
+  const d = document.createElement('div'); d.className = 'sl';
+  d.innerHTML = `<label>${name}<span id="o_${k}">${P[k]}</span></label><input type="range" min="${min}" max="${max}" step="${step}" value="${P[k]}">`;
+  d.querySelector('input').oninput = e => { P[k] = +e.target.value; $('o_' + k).textContent = P[k]; };
+  $('sheet').appendChild(d);
+});
+[['cs','Character set',Object.keys(SETS)],['cm','Colour mode',['Colour','White','Gray','Sepia']]].forEach(([k, name, opts]) => {
+  const d = document.createElement('div'); d.className = 'sel';
+  d.innerHTML = `<label>${name}</label><select>${opts.map(o => `<option>${o}</option>`).join('')}</select>`;
+  d.querySelector('select').onchange = e => P[k] = e.target.value;
+  $('sheet').appendChild(d);
+});
+const tg = document.createElement('div'); tg.className = 'tg';
+[['inv','Invert'],['mir','Mirror'],['gl','Glitch'],['sc','Scanlines']].forEach(([k, name]) => {
+  const b = B[k] = document.createElement('button'); b.textContent = name; b.classList.toggle('on', P[k]);
+  b.onclick = () => { P[k] = !P[k]; b.classList.toggle('on', P[k]); };
+  tg.appendChild(b);
+});
+$('sheet').appendChild(tg);
+$('tune').onclick = () => { $('sheet').classList.toggle('open'); $('tune').classList.toggle('on', $('sheet').classList.contains('open')); };
+
+/* camera controls */
+const hint = x => { $('hint').textContent = x; $('hint').style.display = x ? '' : 'none'; };
+const note = x => { $('rt').textContent = x; setTimeout(() => { if(!rec) $('rt').textContent = ''; }, 2200); };
+const track = () => stream && stream.getVideoTracks()[0];
+const caps = () => { const tr = track(); return tr && tr.getCapabilities ? tr.getCapabilities() : {}; };
+const stopStream = () => { if(stream){ stream.getTracks().forEach(x => x.stop()); stream = null; } };
+function dims(){ return el === v ? [v.videoWidth, v.videoHeight] : el ? [el.naturalWidth, el.naturalHeight] : [0, 0]; }
+
+async function setZoom(z){
+  P.z = z; P.dz = Math.max(1, z);
+  const c = caps();
+  if(c.zoom){
+    const hz = Math.min(c.zoom.max, Math.max(c.zoom.min, z));
+    try{ await track().applyConstraints({advanced:[{zoom:hz}]}); P.dz = Math.max(1, z / hz); }catch(e){}
+    if(z < c.zoom.min) note('Wide lens not supported on this device');
+  }else if(z < 1) note('Wide lens not supported on this device');
+  $$('.zm button').forEach(x => x.classList.toggle('on', +x.dataset.z === z));
+}
+function setMode(m){
+  const old = mode; mode = m;
+  $$('.modes button').forEach(x => x.classList.toggle('on', x.dataset.m === m));
+  $('shut').classList.toggle('v', m === 'video');
+  if(m === 'wide') setZoom(.6); else if(old === 'wide') setZoom(1);
+  $('sheet').classList.toggle('open', m === 'pro'); $('tune').classList.toggle('on', m === 'pro');
+}
+function resetCam(){
+  torch = false; $('fl').classList.remove('on'); P.z = 1; P.dz = 1; mode = 'photo';
+  $$('.zm button').forEach(x => x.classList.toggle('on', x.dataset.z === '1'));
+  $$('.modes button').forEach(x => x.classList.toggle('on', x.dataset.m === 'photo'));
+  $('shut').classList.remove('v'); $('sheet').classList.remove('open'); $('tune').classList.remove('on');
+}
+$$('.zm button').forEach(b => b.onclick = () => setZoom(+b.dataset.z));
+$$('.modes button').forEach(b => b.onclick = () => setMode(b.dataset.m));
+$('flip').onclick = () => { facing = facing === 'user' ? 'environment' : 'user'; startCam(); };
+$('grd').onclick = () => { $('gridov').classList.toggle('on'); $('grd').classList.toggle('on'); };
+$('tmr').onclick = () => { tI = (tI + 1) % 3; $('tmr').classList.toggle('on', tI > 0); note(tI ? 'Timer ' + TM[tI] + 's' : 'Timer off'); };
+$('fl').onclick = async () => {
+  if(!caps().torch){ note('Flash not available on this camera'); return; }
+  torch = !torch; try{ await track().applyConstraints({advanced:[{torch}]}); }catch(e){}
+  $('fl').classList.toggle('on', torch);
+};
+$('back').onclick = () => { if(rec) rec.stop(); stopStream(); v.pause(); el = null; go(from); };
+
+/* sources */
+async function startCam(){
+  stopStream(); v.pause(); v.removeAttribute('src'); el = null; torch = false; $('fl').classList.remove('on');
+  hint('Starting camera...'); P.mir = facing === 'user'; B.mir.classList.toggle('on', P.mir);
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:facing}, audio:false});
+    v.srcObject = stream; await v.play(); el = v; hint(''); setZoom(P.z);
+  }catch(e){ hint('Allow camera access to continue (HTTPS required)'); }
+}
+function loadFile(f){
+  if(!f) return;
+  from = 'up'; stopStream(); el = null; P.mir = false; B.mir.classList.remove('on');
+  hint('Loading...'); $('cam').classList.add('file'); resetCam(); go('cam');
+  const url = URL.createObjectURL(f);
+  if(f.type.startsWith('image/')){ const im = new Image(); im.onload = () => { el = im; hint(''); }; im.src = url; }
+  else{ v.srcObject = null; v.src = url; v.play().then(() => { el = v; hint(''); }); }
+}
+
+/* renderer */
+const cl = x => x < 0 ? 0 : x > 255 ? 255 : x;
+function frame(){
+  requestAnimationFrame(frame);
+  const [w, h] = dims();
+  if(!live || !w || (el === v && v.readyState < 2)) return;
+  const fs = P.fs, cw = fs * .6, ch = fs * 1.15, cols = Math.floor(W / cw);
+  const rows = Math.max(1, Math.floor(h / w * cols * cw / ch)), H = Math.round(rows * ch);
+  if(out.height !== H) out.height = H;
+  if(tmp.width !== cols || tmp.height !== rows){ tmp.width = cols; tmp.height = rows; }
+  const sw = w / P.dz, sh = h / P.dz;
+  tctx.save();
+  if(P.mir){ tctx.translate(cols, 0); tctx.scale(-1, 1); }
+  tctx.drawImage(el, (w - sw) / 2, (h - sh) / 2, sw, sh, 0, 0, cols, rows);
+  tctx.restore();
+  const d = tctx.getImageData(0, 0, cols, rows).data;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  ctx.font = fs + 'px monospace'; ctx.textBaseline = 'top';
+  const R = SETS[P.cs], n = R.length - 1, ct = P.ct, br = P.br, sat = P.sat, wm = P.wm, cm = P.cm;
+  for(let y = 0, i = 0; y < rows; y++){
+    for(let x = 0; x < cols; x++, i += 4){
+      let r = d[i], g = d[i+1], b = d[i+2];
+      const l0 = .299 * r + .587 * g + .114 * b;
+      r = l0 + (r - l0) * sat + wm; g = l0 + (g - l0) * sat; b = l0 + (b - l0) * sat - wm;
+      r = cl((r - 128) * ct + 128 + br); g = cl((g - 128) * ct + 128 + br); b = cl((b - 128) * ct + 128 + br);
+      if(P.inv){ r = 255 - r; g = 255 - g; b = 255 - b; }
+      const l = .299 * r + .587 * g + .114 * b, c = R[Math.floor(l / 255 * n)];
+      if(c === ' ') continue;
+      if(cm === 'White'){ r = g = b = 255; } else if(cm === 'Gray'){ r = g = b = l; } else if(cm === 'Sepia'){ r = l * 1.07; g = l * .74; b = l * .43; }
+      ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+      ctx.fillText(c, x * cw, y * ch);
+    }
+  }
+  if(P.gl && Math.random() < .2){
+    for(let k = 0; k < 3; k++){ const y = Math.random() * H, hh = 4 + Math.random() * H * .06; ctx.drawImage(out, 0, y, W, hh, (Math.random() - .5) * 50, y, W, hh); }
+  }
+  if(P.sc){ ctx.fillStyle = 'rgba(0,0,0,.28)'; for(let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1.5); }
+}
+frame();
+
+/* shutter, timer, recording */
+function download(blob, name){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function snap(){
+  const f = $('fx'); f.classList.remove('f'); void f.offsetWidth; f.classList.add('f');
+  out.toBlob(b => { last = b; download(b, 'ascii.png'); $('thumb').src = URL.createObjectURL(b); });
+}
+function toggleRec(){
+  if(rec){ rec.stop(); return; }
+  if(!window.MediaRecorder){ note('Recording not supported here'); return; }
+  const mime = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
+  chunks = []; rec = new MediaRecorder(out.captureStream(24), {mimeType:mime});
+  rec.ondataavailable = e => chunks.push(e.data);
+  rec.onstop = () => { download(new Blob(chunks, {type:mime}), 'ascii.' + (mime === 'video/mp4' ? 'mp4' : 'webm')); rec = null; $('shut').classList.remove('r'); $('rt').textContent = ''; };
+  rec.start(); $('shut').classList.add('r'); $('rt').textContent = '\u25CF REC';
+}
+$('shut').onclick = () => {
+  if(!el){ note('Nothing to capture yet'); return; }
+  if(mode === 'video'){ toggleRec(); return; }
+  let s = TM[tI]; if(!s){ snap(); return; }
+  $('cd').textContent = s;
+  const iv = setInterval(() => { s--; $('cd').textContent = s || ''; if(!s){ clearInterval(iv); snap(); } }, 1000);
+};
+$('thumb').onclick = () => { if(last) download(last, 'ascii.png'); };
+</script>
+</body>
+</html>
